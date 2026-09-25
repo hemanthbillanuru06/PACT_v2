@@ -139,3 +139,78 @@ def get_audit_logs_col(db: Optional[Database] = None) -> Collection:
 def get_login_attempts_col(db: Optional[Database] = None) -> Collection:
     target_db = db if db is not None else get_db()
     return target_db[settings.COLLECTION_LOGIN_ATTEMPTS]
+
+
+def get_firs_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_FIRS]
+
+
+def get_cases_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_CASES]
+
+
+def get_complainants_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_COMPLAINANTS]
+
+
+def get_victims_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_VICTIMS]
+
+
+def get_suspects_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_SUSPECTS]
+
+
+def get_witnesses_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_WITNESSES]
+
+
+def get_property_items_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_PROPERTY_ITEMS]
+
+
+def get_evidence_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_EVIDENCE]
+
+
+def get_evidence_custody_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_EVIDENCE_CUSTODY]
+
+
+def get_investigation_timeline_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_INVESTIGATION_TIMELINE]
+
+
+def get_case_notes_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_CASE_NOTES]
+
+
+def get_case_assignments_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_CASE_ASSIGNMENTS]
+
+
+def get_case_relationships_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_CASE_RELATIONSHIPS]
+
+
+def get_notifications_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_NOTIFICATIONS]
+
+
+def get_reports_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_REPORTS]

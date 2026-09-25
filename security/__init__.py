@@ -1,4 +1,4 @@
-"""Security package exposing password management, lockout, and RBAC."""
+"""Security package exposing password management, lockout, RBAC, and file security."""
 from security.passwords import (
     hash_password,
     verify_password,
@@ -15,6 +15,16 @@ from security.rbac import (
     get_role_permissions,
     ROLE_PERMISSIONS,
 )
+from security.file_security import (
+    validate_evidence_path,
+    save_evidence_file,
+    read_evidence_file,
+    sanitize_filename,
+    compute_sha256,
+    PathTraversalError,
+    SecurityViolationError,
+    ensure_storage_directories,
+)
 
 __all__ = [
     "hash_password",
@@ -30,4 +40,12 @@ __all__ = [
     "has_permission",
     "get_role_permissions",
     "ROLE_PERMISSIONS",
+    "validate_evidence_path",
+    "save_evidence_file",
+    "read_evidence_file",
+    "sanitize_filename",
+    "compute_sha256",
+    "PathTraversalError",
+    "SecurityViolationError",
+    "ensure_storage_directories",
 ]

@@ -1,4 +1,4 @@
-"""Idempotent index creation for PACT MongoDB collections."""
+"""Idempotent index creation for PACT MongoDB collections (Phase 1 & Phase 2)."""
 import logging
 from typing import Dict, List, Optional
 import pymongo
@@ -12,6 +12,18 @@ from database.connection import (
     get_login_attempts_col,
     get_officers_col,
     get_police_registry_col,
+    get_firs_col,
+    get_cases_col,
+    get_evidence_col,
+    get_investigation_timeline_col,
+    get_case_notes_col,
+    get_case_assignments_col,
+    get_notifications_col,
+    get_property_items_col,
+    get_suspects_col,
+    get_witnesses_col,
+    get_victims_col,
+    get_complainants_col,
 )
 
 logger = logging.getLogger("pact.database.indexes")
@@ -20,11 +32,20 @@ logger = logging.getLogger("pact.database.indexes")
 def ensure_indexes(db: Optional[Database] = None) -> Dict[str, List[str]]:
     """Idempotently create required indexes on all collections.
 
-    Required DB Indexes:
+    Maintains Phase 1 indexes:
       - users.email (unique)
       - users.officer_id (unique)
       - audit_logs.user_id
       - login_attempts.identifier
+
+    Adds Phase 2 indexes:
+      - firs.fir_number (unique), firs.station_id
+      - cases.case_id (unique), cases.station_id, cases.io_officer_id
+      - evidence.evidence_id (unique), evidence.case_id
+      - investigation_timeline.case_id
+      - case_notes.case_id
+      - notifications.recipient_officer_id
+      - case_assignments.case_id, case_assignments.officer_id
 
     Returns a dictionary of created/verified index names by collection.
     """
@@ -35,16 +56,32 @@ def ensure_indexes(db: Optional[Database] = None) -> Dict[str, List[str]]:
     audit_logs_col = get_audit_logs_col(target_db)
     login_attempts_col = get_login_attempts_col(target_db)
 
+    # Phase 2 collections
+    firs_col = get_firs_col(target_db)
+    cases_col = get_cases_col(target_db)
+    evidence_col = get_evidence_col(target_db)
+    timeline_col = get_investigation_timeline_col(target_db)
+    notes_col = get_case_notes_col(target_db)
+    assignments_col = get_case_assignments_col(target_db)
+    notifications_col = get_notifications_col(target_db)
+
     results: Dict[str, List[str]] = {
         "users": [],
         "officers": [],
         "police_registry": [],
         "audit_logs": [],
         "login_attempts": [],
+        "firs": [],
+        "cases": [],
+        "evidence": [],
+        "investigation_timeline": [],
+        "case_notes": [],
+        "case_assignments": [],
+        "notifications": [],
     }
 
     try:
-        # Users indexes
+        # Phase 1: Users indexes
         idx_user_email = users_col.create_index(
             [("email", pymongo.ASCENDING)],
             unique=True,
@@ -101,7 +138,83 @@ def ensure_indexes(db: Optional[Database] = None) -> Dict[str, List[str]]:
         )
         results["login_attempts"].append(idx_attempt_timestamp)
 
-        logger.info("Database indexes ensured successfully: %s", results)
+        # Phase 2: FIRs indexes
+        idx_fir_number = firs_col.create_index(
+            [("fir_number", pymongo.ASCENDING)],
+            unique=True,
+            name="idx_firs_fir_number_unique",
+        )
+        results["firs"].append(idx_fir_number)
+
+        idx_fir_station = firs_col.create_index(
+            [("station_id", pymongo.ASCENDING)],
+            name="idx_firs_station_id",
+        )
+        results["firs"].append(idx_fir_station)
+
+        # Phase 2: Cases indexes
+        idx_case_id = cases_col.create_index(
+            [("case_id", pymongo.ASCENDING)],
+            unique=True,
+            name="idx_cases_case_id_unique",
+        )
+        results["cases"].append(idx_case_id)
+
+        idx_case_station = cases_col.create_index(
+            [("station_id", pymongo.ASCENDING)],
+            name="idx_cases_station_id",
+        )
+        results["cases"].append(idx_case_station)
+
+        idx_case_io = cases_col.create_index(
+            [("io_officer_id", pymongo.ASCENDING)],
+            name="idx_cases_io_officer_id",
+        )
+        results["cases"].append(idx_case_io)
+
+        # Phase 2: Evidence indexes
+        idx_evidence_id = evidence_col.create_index(
+            [("evidence_id", pymongo.ASCENDING)],
+            unique=True,
+            name="idx_evidence_evidence_id_unique",
+        )
+        results["evidence"].append(idx_evidence_id)
+
+        idx_evidence_case = evidence_col.create_index(
+            [("case_id", pymongo.ASCENDING)],
+            name="idx_evidence_case_id",
+        )
+        results["evidence"].append(idx_evidence_case)
+
+        # Phase 2: Timeline indexes
+        idx_timeline_case = timeline_col.create_index(
+            [("case_id", pymongo.ASCENDING), ("timestamp", pymongo.ASCENDING)],
+            name="idx_timeline_case_time",
+        )
+        results["investigation_timeline"].append(idx_timeline_case)
+
+        # Phase 2: Case notes indexes
+        idx_notes_case = notes_col.create_index(
+            [("case_id", pymongo.ASCENDING), ("created_at", pymongo.DESCENDING)],
+            name="idx_notes_case_time",
+        )
+        results["case_notes"].append(idx_notes_case)
+
+        # Phase 2: Case assignments indexes
+        idx_assign_case = assignments_col.create_index(
+            [("case_id", pymongo.ASCENDING), ("officer_id", pymongo.ASCENDING)],
+            name="idx_assign_case_officer",
+        )
+        results["case_assignments"].append(idx_assign_case)
+
+        # Phase 2: Notifications indexes
+        idx_notif_officer = notifications_col.create_index(
+            [("recipient_officer_id", pymongo.ASCENDING), ("is_read", pymongo.ASCENDING)],
+            name="idx_notif_recipient_read",
+        )
+        results["notifications"].append(idx_notif_officer)
+
+        logger.info("Database indexes ensured successfully.")
         return results
 
     except PyMongoError as err:

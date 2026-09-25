@@ -62,3 +62,36 @@ class UserAccount:
             "last_failed_login": self.last_failed_login,
             "locked_at": self.locked_at,
         }
+
+
+@dataclass
+class UserSession:
+    """Authenticated user session with attribute and dict-like access."""
+    officer_id: str
+    role: str
+    station_id: str
+    full_name: str = ""
+    badge_number: str = ""
+    email: str = ""
+    rank: str = ""
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "officer_id": self.officer_id,
+            "role": self.role,
+            "station_id": self.station_id,
+            "full_name": self.full_name,
+            "badge_number": self.badge_number,
+            "email": self.email,
+            "rank": self.rank,
+        }
+

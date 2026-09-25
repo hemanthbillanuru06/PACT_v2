@@ -1,9 +1,10 @@
-"""Sidebar navigation and officer identity component."""
+"""Sidebar navigation, officer identity panel, and notification alerts."""
 from typing import Dict, Any
 import streamlit as st
 
 from config.settings import settings
 from services.auth_service import AuthService
+from services.notification_service import NotificationService
 
 
 def render_sidebar(current_user: Dict[str, Any]) -> str:
@@ -18,7 +19,7 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
             <div style="text-align: center; padding: 12px 0 16px 0; border-bottom: 1px solid #1e293b;">
                 <div style="font-size: 28px;">👮‍♂️</div>
                 <div style="font-weight: 800; font-size: 16px; color: #f8fafc; letter-spacing: 1px;">PACT COMMAND</div>
-                <div style="font-size: 11px; color: #64748b; letter-spacing: 0.5px;">STATE POLICE INTELLIGENCE</div>
+                <div style="font-size: 11px; color: #64748b; letter-spacing: 0.5px;">STATE POLICE INTELLIGENCE • PHASE 2</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -33,6 +34,10 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
         badge = current_user.get("badge_number", "N/A")
         station_id = current_user.get("station_id", "N/A")
         rank = current_user.get("rank", role)
+
+        # Query unread notifications count
+        unread_notifs = NotificationService.get_officer_notifications(officer_id, unread_only=True)
+        unread_count = len(unread_notifs)
 
         st.markdown(
             f"""
@@ -52,11 +57,18 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
         )
 
         st.markdown("<hr style='border-color: #1e293b; margin: 12px 0;'>", unsafe_allow_html=True)
-        st.caption("TACTICAL NAVIGATION")
+        st.caption("INVESTIGATION OPERATIONS")
 
-        # Navigation Options
+        notif_label = f"🔔 Dispatch Alerts ({unread_count})" if unread_count > 0 else "🔔 Dispatch Alerts"
+
+        # Navigation Options for Phase 2
         nav_options = [
             ("🏢 Command Overview", "overview"),
+            ("📁 Case Dossiers (150+)", "cases"),
+            ("📑 First Info Reports (FIR)", "firs"),
+            ("🔎 Semantic Case Matcher", "semantic_search"),
+            ("📊 Crime Analytics & Trends", "analytics"),
+            (notif_label, "notifications"),
             ("📡 Station Registry (10)", "stations"),
             ("🛡️ Personnel Directory", "officers"),
         ]
@@ -67,11 +79,10 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
 
         # Lockout control visible for ADMIN
         if role == settings.ROLE_ADMIN:
-            nav_options.append(("⚙️ Security Telemetry & Lockouts", "security_admin"))
+            nav_options.append(("⚙️ Security & Lockouts", "security_admin"))
 
         current_nav = st.session_state.get("active_nav", "overview")
 
-        # Find matching label
         labels = [opt[0] for opt in nav_options]
         target_keys = [opt[1] for opt in nav_options]
 
@@ -89,7 +100,15 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
         selected_key = target_keys[labels.index(selected_label)]
         st.session_state["active_nav"] = selected_key
 
-        st.markdown("<hr style='border-color: #1e293b; margin: 24px 0 12px 0;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color: #1e293b; margin: 20px 0 12px 0;'>", unsafe_allow_html=True)
+
+        # Quick Showcase Case Launcher in Sidebar
+        if st.button("⭐ Open Showcase Case (0042)", use_container_width=True):
+            st.session_state["selected_case_id"] = "PACT-CASE-2026-0042"
+            st.session_state["active_nav"] = "cases"
+            st.rerun()
+
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
         # Logout Button
         if st.button("🚪 DISCONNECT / LOGOUT", use_container_width=True):
@@ -97,7 +116,7 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
             st.session_state.clear()
             st.rerun()
 
-        st.caption("SECURE SESSION ID")
+        st.caption("SECURE SESSION")
         st.code(f"SESS-{officer_id[-4:]}-ACTIVE", language="text")
 
     return selected_key

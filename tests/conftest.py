@@ -30,13 +30,7 @@ def test_db(mongo_client: MongoClient) -> Database:
     """Function-scoped clean test database."""
     db = mongo_client[TEST_DB_NAME]
     # Drop existing test collections for isolation
-    for col_name in [
-        settings.COLLECTION_USERS,
-        settings.COLLECTION_OFFICERS,
-        settings.COLLECTION_POLICE_REGISTRY,
-        settings.COLLECTION_AUDIT_LOGS,
-        settings.COLLECTION_LOGIN_ATTEMPTS,
-    ]:
+    for col_name in settings.ALL_COLLECTIONS:
         db[col_name].drop()
 
     # Ensure indexes
@@ -44,13 +38,7 @@ def test_db(mongo_client: MongoClient) -> Database:
     yield db
 
     # Teardown
-    for col_name in [
-        settings.COLLECTION_USERS,
-        settings.COLLECTION_OFFICERS,
-        settings.COLLECTION_POLICE_REGISTRY,
-        settings.COLLECTION_AUDIT_LOGS,
-        settings.COLLECTION_LOGIN_ATTEMPTS,
-    ]:
+    for col_name in settings.ALL_COLLECTIONS:
         db[col_name].drop()
 
 

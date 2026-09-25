@@ -420,8 +420,17 @@ def seed_database(db: Optional[Database] = None, force_rehash: bool = False) -> 
             )
         users_seeded += 1
 
-    logger.info("Database seeding complete. Stations: %d, Users/Officers: %d", stations_seeded, users_seeded)
-    return {"stations": stations_seeded, "users": users_seeded}
+    # Execute Phase 2 seeding (150+ cases, showcase case, FIRs, evidence)
+    from database.seed_phase2 import seed_phase2
+    p2_res = seed_phase2(db=target_db)
+
+    logger.info("Database seeding complete. Stations: %d, Users/Officers: %d, Cases: %d", stations_seeded, users_seeded, p2_res.get("cases", 0))
+    return {
+        "stations": stations_seeded,
+        "users": users_seeded,
+        "cases": p2_res.get("cases", 0),
+        "firs": p2_res.get("firs", 0),
+    }
 
 
 if __name__ == "__main__":
