@@ -179,3 +179,19 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# ── PACT-specific ──────────────────────────────────────────
+# Uploaded evidence files (physical files stored outside Git)
+data/evidence/*
+!data/evidence/.gitkeep
+
+# Generated PDF/CSV reports
+data/reports/*
+!data/reports/.gitkeep
+
+# Sentence-Transformer model cache (downloaded on first run)
+.cache/
+models/
+
+# Streamlit local config
+.streamlit/secrets.toml
