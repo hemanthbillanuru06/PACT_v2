@@ -52,6 +52,9 @@ class Settings:
     COLLECTION_NOTIFICATIONS: str = "notifications"
     COLLECTION_REPORTS: str = "reports"
 
+    # Phase 3 Collections
+    COLLECTION_AI_ANALYSIS_HISTORY: str = "ai_analysis_history"
+
     ALL_COLLECTIONS: Tuple[str, ...] = (
         COLLECTION_USERS,
         COLLECTION_OFFICERS,
@@ -73,6 +76,7 @@ class Settings:
         COLLECTION_CASE_RELATIONSHIPS,
         COLLECTION_NOTIFICATIONS,
         COLLECTION_REPORTS,
+        COLLECTION_AI_ANALYSIS_HISTORY,
     )
 
     # Standard Roles
@@ -113,9 +117,19 @@ class Settings:
     AUDIT_TIMELINE_UPDATED: str = "TIMELINE_UPDATED"
     AUDIT_REPORT_GENERATED: str = "REPORT_GENERATED"
 
+    # Phase 3 Audit Events
+    AUDIT_AI_ANALYSIS_REQUESTED: str = "AI_ANALYSIS_REQUESTED"
+    AUDIT_AI_ANALYSIS_COMPLETED: str = "AI_ANALYSIS_COMPLETED"
+    AUDIT_AI_ANALYSIS_FAILED: str = "AI_ANALYSIS_FAILED"
+
     # Semantic Search Configuration
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
     SEMANTIC_SIMILARITY_THRESHOLD: float = 0.40
+
+    # Phase 3 Gemini Configuration
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_REQUEST_TIMEOUT_SECONDS: int = int(os.getenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "30"))
 
 
 settings = Settings()

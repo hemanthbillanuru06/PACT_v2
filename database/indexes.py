@@ -24,6 +24,7 @@ from database.connection import (
     get_witnesses_col,
     get_victims_col,
     get_complainants_col,
+    get_ai_analysis_history_col,
 )
 
 logger = logging.getLogger("pact.database.indexes")
@@ -65,6 +66,9 @@ def ensure_indexes(db: Optional[Database] = None) -> Dict[str, List[str]]:
     assignments_col = get_case_assignments_col(target_db)
     notifications_col = get_notifications_col(target_db)
 
+    # Phase 3 collections
+    ai_history_col = get_ai_analysis_history_col(target_db)
+
     results: Dict[str, List[str]] = {
         "users": [],
         "officers": [],
@@ -78,6 +82,7 @@ def ensure_indexes(db: Optional[Database] = None) -> Dict[str, List[str]]:
         "case_notes": [],
         "case_assignments": [],
         "notifications": [],
+        "ai_analysis_history": [],
     }
 
     try:
@@ -213,6 +218,32 @@ def ensure_indexes(db: Optional[Database] = None) -> Dict[str, List[str]]:
             name="idx_notif_recipient_read",
         )
         results["notifications"].append(idx_notif_officer)
+
+        # Phase 3: AI Analysis History indexes
+        idx_ai_analysis_id = ai_history_col.create_index(
+            [("analysis_id", pymongo.ASCENDING)],
+            unique=True,
+            name="idx_ai_history_analysis_id_unique",
+        )
+        results["ai_analysis_history"].append(idx_ai_analysis_id)
+
+        idx_ai_case = ai_history_col.create_index(
+            [("case_id", pymongo.ASCENDING)],
+            name="idx_ai_history_case_id",
+        )
+        results["ai_analysis_history"].append(idx_ai_case)
+
+        idx_ai_officer = ai_history_col.create_index(
+            [("officer_id", pymongo.ASCENDING)],
+            name="idx_ai_history_officer_id",
+        )
+        results["ai_analysis_history"].append(idx_ai_officer)
+
+        idx_ai_timestamp = ai_history_col.create_index(
+            [("timestamp", pymongo.DESCENDING)],
+            name="idx_ai_history_timestamp",
+        )
+        results["ai_analysis_history"].append(idx_ai_timestamp)
 
         logger.info("Database indexes ensured successfully.")
         return results

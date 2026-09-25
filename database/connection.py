@@ -214,3 +214,8 @@ def get_notifications_col(db: Optional[Database] = None) -> Collection:
 def get_reports_col(db: Optional[Database] = None) -> Collection:
     target_db = db if db is not None else get_db()
     return target_db[settings.COLLECTION_REPORTS]
+
+
+def get_ai_analysis_history_col(db: Optional[Database] = None) -> Collection:
+    target_db = db if db is not None else get_db()
+    return target_db[settings.COLLECTION_AI_ANALYSIS_HISTORY]

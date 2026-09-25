@@ -17,6 +17,7 @@ from services.notification_service import NotificationService
 from services.station_service import StationService
 from services.user_service import UserService
 from services.audit_service import AuditService
+from services.gemini_service import GeminiService, GeminiAnalysisResult, GeminiKeyMissingError
 
 
 def render_dashboard(current_user: Dict[str, Any], active_nav: str) -> None:
@@ -259,7 +260,7 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
     )
 
     # Dossier Tabs
-    tab_overview, tab_people, tab_property, tab_evidence, tab_custody, tab_timeline, tab_notes, tab_export = st.tabs([
+    tab_overview, tab_people, tab_property, tab_evidence, tab_custody, tab_timeline, tab_notes, tab_ai, tab_export = st.tabs([
         "📋 Overview & MO",
         "👥 People",
         "📦 Property",
@@ -267,6 +268,7 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
         "⛓️ Chain of Custody",
         "⏱️ Timeline",
         "📓 Case Diary",
+        "🤖 Gemini AI Assistant",
         "📄 Export Dossier",
     ])
 
@@ -485,7 +487,115 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
                         st.success("Entry saved.")
                         st.rerun()
 
-    # Tab 8: Export Dossier
+    # Tab 8: Gemini AI Assistant
+    with tab_ai:
+        st.markdown("#### 🤖 Google Gemini Investigative Assistant")
+        st.caption("AI-powered investigative intelligence grounded strictly on verified case facts, timeline, evidence, and entity records.")
+
+        api_key_configured = bool(getattr(settings, "GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", ""))
+        if api_key_configured:
+            st.success(f"● Gemini Engine Online • Model: `{settings.GEMINI_MODEL}` • Grounding Enforced")
+        else:
+            st.warning("⚠️ Gemini Engine Offline: `GEMINI_API_KEY` is not set in `.env`. Case dossiers, evidence tracking, and semantic search remain 100% operational.")
+
+        # Analysis Selection & Invocation
+        st.markdown("##### 1. Structured Case Analysis")
+        col_type, col_action = st.columns([3, 2])
+        with col_type:
+            analysis_labels = {
+                "CASE_SUMMARY": "📋 Executive Case Summary (Senior Leadership)",
+                "INVESTIGATION_BRIEF": "🔍 Tactical Detective Briefing (MO & Leads)",
+                "EVIDENCE_SUMMARY": "🔬 Evidence & Forensics Integrity Assessment",
+                "TIMELINE_ANALYSIS": "⏱️ Timeline Reconstruction & Chronological Gap Analysis",
+                "INVESTIGATIVE_QUESTIONS": "❓ Strategic Interrogation & Inquiry Question Generator",
+                "CASE_COMPARISON": "⚖️ Side-by-Side Case Comparison",
+            }
+            selected_analysis = st.selectbox(
+                "Select Intelligence Product",
+                options=list(analysis_labels.keys()),
+                format_func=lambda x: analysis_labels.get(x, x),
+                key=f"sel_ai_type_{case_id}",
+            )
+
+        comp_case_id = None
+        if selected_analysis == "CASE_COMPARISON":
+            other_cases = CaseService.get_cases(current_user, limit=50)
+            other_ids = [c["case_id"] for c in other_cases if c["case_id"] != case_id]
+            if other_ids:
+                comp_case_id = st.selectbox("Select Case to Compare Against", options=other_ids, key=f"sel_comp_{case_id}")
+            else:
+                st.info("No other accessible cases available for comparison.")
+
+        with col_action:
+            st.write("")
+            st.write("")
+            run_btn = st.button("⚡ Generate Analysis", key=f"btn_run_ai_{case_id}", use_container_width=True)
+
+        if run_btn:
+            with st.spinner("Analyzing case records with Gemini AI..."):
+                res = GeminiService.analyze_case(
+                    current_user=current_user,
+                    case_id=case_id,
+                    analysis_type=selected_analysis,
+                    comparison_case_id=comp_case_id,
+                )
+                st.session_state[f"last_ai_result_{case_id}"] = res.to_dict()
+
+        # Display last result if available
+        last_res = st.session_state.get(f"last_ai_result_{case_id}")
+        if last_res:
+            if last_res.get("status") == "SUCCESS":
+                st.markdown("---")
+                st.markdown(f"**Analysis Report: `{last_res.get('analysis_type')}`** (Generated in {last_res.get('duration_seconds')}s)")
+                st.markdown(last_res.get("output", ""))
+            elif last_res.get("status") == "KEY_MISSING":
+                st.info(last_res.get("error_message"))
+            else:
+                st.error(last_res.get("error_message", "AI processing encountered an error."))
+
+        st.markdown("---")
+        # Interactive Officer Q&A
+        st.markdown("##### 2. Officer Case Q&A Assistant")
+        st.caption("Ask questions strictly bounded to verified facts in this case dossier.")
+        qa_col1, qa_col2 = st.columns([4, 1])
+        with qa_col1:
+            officer_q = st.text_input("Enter your investigative question", placeholder="e.g. What forensic tools were used by the perpetrators? What is the suspect's alibi?", key=f"qa_input_{case_id}")
+        with qa_col2:
+            st.write("")
+            st.write("")
+            qa_btn = st.button("🔍 Ask Assistant", key=f"btn_qa_ask_{case_id}", use_container_width=True)
+
+        if qa_btn and officer_q.strip():
+            with st.spinner("Consulting case dossier records..."):
+                qa_res = GeminiService.analyze_case(
+                    current_user=current_user,
+                    case_id=case_id,
+                    analysis_type="OFFICER_QA",
+                    officer_query=officer_q.strip(),
+                )
+                st.session_state[f"last_qa_result_{case_id}"] = qa_res.to_dict()
+
+        last_qa = st.session_state.get(f"last_qa_result_{case_id}")
+        if last_qa:
+            if last_qa.get("status") == "SUCCESS":
+                st.markdown(f"**Response:**\n\n{last_qa.get('output')}")
+            elif last_qa.get("status") == "KEY_MISSING":
+                st.info(last_qa.get("error_message"))
+            else:
+                st.error(last_qa.get("error_message"))
+
+        # Historical AI Analysis Ledger
+        with st.expander("📜 Historical AI Analysis Ledger for this Case"):
+            hist = GeminiService.get_case_ai_history(current_user, case_id)
+            if hist:
+                for h in hist:
+                    st.markdown(f"🗓️ **{h.get('timestamp')}** • `{h.get('analysis_type')}` • Officer: `{h.get('officer_id')}` • Duration: `{h.get('duration_seconds')}s`")
+                    st.caption(h.get("output", "")[:250] + "..." if len(h.get("output", "")) > 250 else h.get("output", ""))
+                    st.markdown("<hr style='margin: 4px 0 8px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
+            else:
+                st.caption("No prior AI analyses recorded for this case.")
+
+    # Tab 9: Export Dossier
     with tab_export:
         st.markdown("#### Official Law Enforcement Dossier Generation")
         st.caption("Generate a court-ready PDF dossier containing all case intelligence, suspects, evidence, and chain of custody.")
