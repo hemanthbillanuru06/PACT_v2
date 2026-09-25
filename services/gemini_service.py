@@ -252,16 +252,40 @@ class GeminiService:
             client = self._get_client()
             from google.genai import types
 
-            response = client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=prompt_text,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    temperature=0.2,
-                ),
-            )
+            response = None
+            candidate_models = [settings.GEMINI_MODEL, "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash-lite"]
+            # Deduplicate while preserving order
+            seen = set()
+            models_to_try = [m for m in candidate_models if not (m in seen or seen.add(m))]
 
-            raw_output = response.text or ""
+            used_model = settings.GEMINI_MODEL
+            last_err = None
+
+            for m_name in models_to_try:
+                try:
+                    response = client.models.generate_content(
+                        model=m_name,
+                        contents=prompt_text,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_INSTRUCTION,
+                            temperature=0.2,
+                        ),
+                    )
+                    used_model = m_name
+                    break
+                except Exception as exc:
+                    last_err = exc
+                    err_msg = str(exc)
+                    if any(code in err_msg for code in ["503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED", "NOT_FOUND"]):
+                        logger.warning("Gemini model %s transient error: %s. Trying next candidate...", m_name, err_msg[:70])
+                        time.sleep(1.0)
+                        continue
+                    raise
+
+            if response is None and last_err:
+                raise last_err
+
+            raw_output = response.text if response else ""
             # Ensure mandatory legal disclaimer is present
             if MANDATORY_DISCLAIMER not in raw_output:
                 raw_output = f"{raw_output.strip()}\n\n---\n*{MANDATORY_DISCLAIMER}*"
