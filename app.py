@@ -39,16 +39,12 @@ def initialize_platform() -> bool:
     except DatabaseConnectionError as err:
         logger.critical("Platform startup halted: MongoDB connection failed: %s", err)
         st.error(
-            f"""
-            ### 🚨 CRITICAL SYSTEM FAILURE: MONGODB UNAVAILABLE
-            The PACT Police Intelligence Platform requires an active MongoDB database instance at:
-            `{settings.MONGO_URI}` (Database: `{settings.MONGO_DB_NAME}`)
-
-            **Error Details:**
-            `{err}`
-
-            Please start the local MongoDB service (`mongod` / `net start MongoDB`) and reload.
-            """
+            f"### 🚨 Database Connection Failed: Please verify your MONGO_URI in Streamlit secrets.\n\n"
+            f"**Details:** {err}\n\n"
+            "**Troubleshooting:**\n"
+            "- Ensure your `MONGO_URI` secret is configured in Streamlit Cloud Settings > Secrets.\n"
+            "- Verify your MongoDB Atlas Network Access allows `0.0.0.0/0` (Allow access from anywhere).\n"
+            "- Check that your database username and password in the connection string are correct."
         )
         st.stop()
         return False

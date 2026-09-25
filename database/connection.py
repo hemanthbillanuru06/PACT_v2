@@ -7,7 +7,7 @@ from typing import Optional
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.collection import Collection
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError, PyMongoError
+from pymongo.errors import ConfigurationError, ConnectionFailure, ServerSelectionTimeoutError, PyMongoError
 
 from config.settings import settings
 
@@ -60,22 +60,28 @@ class MongoDBConnection:
                 client.admin.command("ping")
                 cls._client = client
                 logger.info("MongoDB connection established successfully.")
-            except (ServerSelectionTimeoutError, ConnectionFailure) as err:
-                logger.critical("MongoDB connection failed at %s: %s", target_uri, err)
+            except (ConfigurationError, ServerSelectionTimeoutError, ConnectionFailure, PyMongoError) as err:
+                # Redact credentials from URI before logging/displaying
+                safe_uri = target_uri.split("@")[-1] if "@" in target_uri else target_uri
+                logger.critical("MongoDB connection failed [%s]: %s", safe_uri, err)
                 raise DatabaseConnectionError(
-                    f"CRITICAL: Failed to connect to MongoDB at '{target_uri}'. "
-                    f"Ensure MongoDB service is running on the target host. Details: {err}"
+                    f"CRITICAL: Failed to connect to MongoDB. "
+                    f"Database Connection Failed: Could not reach MongoDB at '{safe_uri}'. "
+                    f"Please verify your MONGO_URI secret and ensure the cluster is reachable "
+                    f"from this environment. Details: {err}"
                 ) from err
         else:
             # Verify client is still healthy
             try:
                 cls._client.admin.command("ping")
-            except (ServerSelectionTimeoutError, ConnectionFailure) as err:
-                logger.critical("MongoDB connection lost at %s: %s", target_uri, err)
+            except (ConfigurationError, ServerSelectionTimeoutError, ConnectionFailure, PyMongoError) as err:
+                safe_uri = target_uri.split("@")[-1] if "@" in target_uri else target_uri
+                logger.critical("MongoDB connection lost [%s]: %s", safe_uri, err)
                 cls._client = None
                 cls._db = None
                 raise DatabaseConnectionError(
-                    f"CRITICAL: MongoDB connection to '{target_uri}' was lost. Details: {err}"
+                    f"Database Connection Failed: MongoDB connection to '{safe_uri}' was lost. "
+                    f"Please verify your MONGO_URI secret. Details: {err}"
                 ) from err
 
         return cls._client

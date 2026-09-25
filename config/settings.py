@@ -1,17 +1,53 @@
 """Application settings and constants for PACT Phase 1 and Phase 2."""
 import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from dotenv import load_dotenv
 
 # Load variables from .env file
 load_dotenv()
 
 
+def _get_secret_or_env(key: str, default: str = "") -> str:
+    """Retrieve configuration from OS environment, falling back to Streamlit secrets."""
+    val = os.getenv(key)
+    if val:
+        return val
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and key in st.secrets:
+            return str(st.secrets[key])
+    except Exception:
+        pass
+    return default
+
+
 class Settings:
     """Central configuration parameters."""
 
-    MONGO_URI: str = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-    MONGO_DB_NAME: str = os.getenv("MONGO_DB_NAME", "pact_db")
+    _mongo_uri: Optional[str] = None
+    _mongo_db_name: Optional[str] = None
+    _gemini_api_key: Optional[str] = None
+
+    @property
+    def MONGO_URI(self) -> str:
+        if self._mongo_uri is not None:
+            return self._mongo_uri
+        return _get_secret_or_env("MONGO_URI", "mongodb://localhost:27017/")
+
+    @MONGO_URI.setter
+    def MONGO_URI(self, value: str) -> None:
+        self._mongo_uri = value
+
+    @property
+    def MONGO_DB_NAME(self) -> str:
+        if self._mongo_db_name is not None:
+            return self._mongo_db_name
+        return _get_secret_or_env("MONGO_DB_NAME", "pact_db")
+
+    @MONGO_DB_NAME.setter
+    def MONGO_DB_NAME(self, value: str) -> None:
+        self._mongo_db_name = value
+
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     # Security Configuration
@@ -127,7 +163,16 @@ class Settings:
     SEMANTIC_SIMILARITY_THRESHOLD: float = 0.40
 
     # Phase 3 Gemini Configuration
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    @property
+    def GEMINI_API_KEY(self) -> str:
+        if self._gemini_api_key is not None:
+            return self._gemini_api_key
+        return _get_secret_or_env("GEMINI_API_KEY", "")
+
+    @GEMINI_API_KEY.setter
+    def GEMINI_API_KEY(self, value: str) -> None:
+        self._gemini_api_key = value
+
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     GEMINI_REQUEST_TIMEOUT_SECONDS: int = int(os.getenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "30"))
 
