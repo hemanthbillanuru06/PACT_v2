@@ -16,9 +16,9 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
         # Command Center Insignia
         st.markdown(
             """
-            <div style="text-align: center; padding: 12px 0 16px 0; border-bottom: 1px solid #1e293b;">
+            <div style="text-align: center; padding: 12px 0 16px 0; border-bottom: 1px solid #e2e8f0;">
                 <div style="font-size: 28px;">👮‍♂️</div>
-                <div style="font-weight: 800; font-size: 16px; color: #f8fafc; letter-spacing: 1px;">PACT COMMAND</div>
+                <div style="font-weight: 800; font-size: 16px; color: #0f172a; letter-spacing: 1px;">PACT COMMAND</div>
                 <div style="font-size: 11px; color: #64748b; letter-spacing: 0.5px;">STATE POLICE INTELLIGENCE • PHASE 2</div>
             </div>
             """,
@@ -47,7 +47,7 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
                 <div style="margin-bottom: 8px;">
                     <span class="badge-role badge-{role}">{role}</span>
                 </div>
-                <div style="font-size: 11px; color: #94a3b8;">
+                <div style="font-size: 11px; color: #475569;">
                     <strong>Rank:</strong> {rank}<br>
                     <strong>Assigned Station:</strong> {station_id}
                 </div>
@@ -56,7 +56,7 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
             unsafe_allow_html=True,
         )
 
-        st.markdown("<hr style='border-color: #1e293b; margin: 12px 0;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color: #e2e8f0; margin: 12px 0;'>", unsafe_allow_html=True)
         st.caption("INVESTIGATION OPERATIONS")
 
         notif_label = f"🔔 Dispatch Alerts ({unread_count})" if unread_count > 0 else "🔔 Dispatch Alerts"
@@ -108,7 +108,7 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
         selected_key = target_keys[labels.index(selected_label)]
         st.session_state["active_nav"] = selected_key
 
-        st.markdown("<hr style='border-color: #1e293b; margin: 20px 0 12px 0;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color: #e2e8f0; margin: 20px 0 12px 0;'>", unsafe_allow_html=True)
 
         # Quick Showcase Case Launcher in Sidebar
         if st.button("⭐ Open Showcase Case (0042)", use_container_width=True):

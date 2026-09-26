@@ -130,11 +130,11 @@ def render_overview(current_user: Dict[str, Any]) -> None:
     # Showcase Case Callout
     st.markdown(
         """
-        <div style="background-color: #111a2c; border-left: 5px solid #38bdf8; border-top: 1px solid #1e293b; border-right: 1px solid #1e293b; border-bottom: 1px solid #1e293b; padding: 14px 18px; border-radius: 4px; margin: 16px 0;">
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; padding: 14px 18px; border-radius: 4px; margin: 16px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <strong style="color: #38bdf8; font-size: 14px;">🎯 MANDATORY SHOWCASE CASE ACTIVE</strong><br>
-                    <span style="color: #cbd5e1; font-size: 13px;">
+                    <strong style="color: #0369a1; font-size: 14px;">🎯 MANDATORY SHOWCASE CASE ACTIVE</strong><br>
+                    <span style="color: #334155; font-size: 13px;">
                         <strong>Case ID:</strong> <code>PACT-CASE-2026-0042</code> • <strong>FIR:</strong> <code>TS/NORTH/2026/0042</code> • 
                         <strong>Crime:</strong> Vehicle Theft • <strong>Priority:</strong> HIGH • <strong>Station:</strong> North Station • <strong>Lead IO:</strong> TS-POL-003
                     </span>
@@ -150,7 +150,7 @@ def render_overview(current_user: Dict[str, Any]) -> None:
         st.session_state["active_nav"] = "cases"
         st.rerun()
 
-    st.markdown("<hr style='border-color: #1e293b; margin: 16px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: #e2e8f0; margin: 16px 0;'>", unsafe_allow_html=True)
 
     # RBAC Privileges Display
     role = current_user.get("role", "CONSTABLE")
@@ -246,20 +246,20 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
 
     st.markdown(
         f"""
-        <div style="background-color: #111a2c; border: 1px solid #1e2e4a; border-left: 6px solid #2563eb; border-radius: 6px; padding: 18px; margin: 12px 0;">
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-left: 6px solid #1e40af; border-radius: 6px; padding: 18px; margin: 12px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <h3 style="margin: 0; color: #f8fafc;">{case.get('title')}</h3>
-                    <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">
-                        <strong>Case ID:</strong> <code style="color: #38bdf8;">{case_id}</code> • 
+                    <h3 style="margin: 0; color: #0f172a;">{case.get('title')}</h3>
+                    <p style="margin: 4px 0 0 0; color: #475569; font-size: 13px;">
+                        <strong>Case ID:</strong> <code style="color: #0284c7;">{case_id}</code> • 
                         <strong>FIR:</strong> <code>{case.get('fir_number')}</code> • 
                         <strong>Station:</strong> {case.get('station_id')} • 
-                        <strong>Lead IO:</strong> <code style="color: #38bdf8;">{case.get('io_officer_id')}</code>
+                        <strong>Lead IO:</strong> <code style="color: #0284c7;">{case.get('io_officer_id')}</code>
                     </p>
                 </div>
                 <div>
-                    <span class="badge-role" style="background-color: #1e3a8a; color: #bfdbfe; margin-right: 6px;">{prio} PRIORITY</span>
-                    <span class="badge-role" style="background-color: #14532d; color: #bbf7d0;">{status}</span>
+                    <span class="badge-role" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; margin-right: 6px;">{prio} PRIORITY</span>
+                    <span class="badge-role" style="background-color: #dcfce7; color: #166534; border: 1px solid #86efac;">{status}</span>
                 </div>
             </div>
         </div>
@@ -454,7 +454,7 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
             for t in timeline:
                 st.markdown(f"🗓️ **{t.get('timestamp')}** • `{t.get('event_type')}` — **{t.get('title')}**")
                 st.caption(f"{t.get('description')} (Recorded by: {t.get('recorded_by')})")
-                st.markdown("<hr style='margin: 4px 0 8px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 4px 0 8px 0; border-color: #e2e8f0;'>", unsafe_allow_html=True)
         else:
             st.info("No timeline milestones.")
 
@@ -479,7 +479,7 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
                 badge_conf = "🔒 CONFIDENTIAL" if n.get("is_confidential") else "📝 GENERAL"
                 st.markdown(f"**{n.get('author_name')}** ({n.get('author_id')}) • `{badge_conf}` • {n.get('created_at')}")
                 st.write(n.get("content"))
-                st.markdown("<hr style='margin: 4px 0 8px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 4px 0 8px 0; border-color: #e2e8f0;'>", unsafe_allow_html=True)
         else:
             st.info("No case diary notes recorded.")
 
@@ -599,7 +599,7 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
                 for h in hist:
                     st.markdown(f"🗓️ **{h.get('timestamp')}** • `{h.get('analysis_type')}` • Officer: `{h.get('officer_id')}` • Duration: `{h.get('duration_seconds')}s`")
                     st.caption(h.get("output", "")[:250] + "..." if len(h.get("output", "")) > 250 else h.get("output", ""))
-                    st.markdown("<hr style='margin: 4px 0 8px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 4px 0 8px 0; border-color: #e2e8f0;'>", unsafe_allow_html=True)
             else:
                 st.caption("No prior AI analyses recorded for this case.")
 
@@ -766,18 +766,18 @@ def render_semantic_search_view(current_user: Dict[str, Any]) -> None:
             sim_pct = int(m['similarity_score'] * 100)
             st.markdown(
                 f"""
-                <div style="background-color: #111a2c; border: 1px solid #1e2e4a; border-left: 5px solid #0284c7; padding: 14px; border-radius: 4px; margin-bottom: 12px;">
+                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; padding: 14px; border-radius: 4px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                     <div style="display: flex; justify-content: space-between;">
-                        <h4 style="margin: 0; color: #f8fafc;">{m['title']} (<code>{m['case_id']}</code>)</h4>
-                        <span style="font-weight: 700; color: #38bdf8; font-size: 16px;">{sim_pct}% SIMILARITY</span>
+                        <h4 style="margin: 0; color: #0f172a;">{m['title']} (<code>{m['case_id']}</code>)</h4>
+                        <span style="font-weight: 700; color: #0284c7; font-size: 16px;">{sim_pct}% SIMILARITY</span>
                     </div>
-                    <p style="margin: 4px 0; font-size: 12px; color: #94a3b8;">
+                    <p style="margin: 4px 0; font-size: 12px; color: #64748b;">
                         <strong>Crime:</strong> {m['crime_type']} • <strong>Station:</strong> {m['station_id']} • <strong>Status:</strong> {m['status']} • <strong>Engine:</strong> {m['engine_used']}
                     </p>
-                    <p style="margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1;">
+                    <p style="margin: 6px 0 0 0; font-size: 13px; color: #1e293b;">
                         <strong>Modus Operandi:</strong> {m['modus_operandi']}
                     </p>
-                    <div style="font-size: 11px; color: #f59e0b; margin-top: 6px;">
+                    <div style="font-size: 11px; color: #b45309; margin-top: 6px;">
                         ⚠️ {m['disclaimer']}
                     </div>
                 </div>
@@ -880,7 +880,7 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
         st.markdown(f'<div class="metric-box"><div class="metric-label">Monitored Stations</div><div class="metric-val">{len(stations_list)}</div></div>', unsafe_allow_html=True)
 
     # 3. Interactive Filters
-    st.markdown("<hr style='border-color: #1e293b; margin: 12px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: #e2e8f0; margin: 12px 0;'>", unsafe_allow_html=True)
     fc1, fc2, fc3, fc4 = st.columns(4)
     with fc1:
         station_filter = st.selectbox("Filter Police Station", ["ALL STATIONS"] + sorted([s["name"] for s in stations_list]), key="sp_flt_station")
@@ -948,14 +948,14 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
             initial_view_state=view_state,
             tooltip={
                 "html": "<b>{title}</b><br/>ID: <code>{case_id}</code><br/>Crime: {crime_type}<br/>Priority: {priority}<br/>Status: {status}<br/>Station: {station_name}",
-                "style": {"backgroundColor": "#0d131f", "color": "#f8fafc", "border": "1px solid #1e293b", "fontSize": "12px", "padding": "8px"},
+                "style": {"backgroundColor": "#ffffff", "color": "#0f172a", "border": "1px solid #cbd5e1", "fontSize": "12px", "padding": "8px"},
             },
         )
         st.pydeck_chart(deck, use_container_width=True)
 
         st.markdown(
             """
-            <div style="display: flex; gap: 16px; font-size: 12px; margin-top: 4px; color: #94a3b8; flex-wrap: wrap;">
+            <div style="display: flex; gap: 16px; font-size: 12px; margin-top: 4px; color: #475569; flex-wrap: wrap;">
                 <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; margin-right: 4px;"></span> Critical Priority</div>
                 <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #f97316; border-radius: 50%; margin-right: 4px;"></span> High Priority</div>
                 <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #3b82f6; border-radius: 50%; margin-right: 4px;"></span> Medium Priority</div>
@@ -973,7 +973,7 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
             st.info("No matching incident locations to display.")
 
     # 5. Consolidated Plotly Charts Grouped Together
-    st.markdown("<hr style='border-color: #1e293b; margin: 20px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: #e2e8f0; margin: 20px 0;'>", unsafe_allow_html=True)
     st.markdown("### 📈 Tactical Crime Analytics & Trends")
 
     chart_c1, chart_c2 = st.columns(2)
@@ -991,9 +991,9 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
             color_continuous_scale="Blues",
         )
         fig_crime.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#0d131f",
-            plot_bgcolor="#111a2c",
+            template="plotly_white",
+            paper_bgcolor="#ffffff",
+            plot_bgcolor="#f8fafc",
             margin=dict(l=20, r=20, t=30, b=20),
             yaxis=dict(autorange="reversed"),
         )
@@ -1018,8 +1018,8 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
             color_discrete_map=prio_color_map,
         )
         fig_prio.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#0d131f",
+            template="plotly_white",
+            paper_bgcolor="#ffffff",
             margin=dict(l=20, r=20, t=30, b=20),
         )
         st.plotly_chart(fig_prio, use_container_width=True)
@@ -1041,9 +1041,9 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
                 color_discrete_sequence=["#38bdf8"],
             )
             fig_time.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="#0d131f",
-                plot_bgcolor="#111a2c",
+                template="plotly_white",
+                paper_bgcolor="#ffffff",
+                plot_bgcolor="#f8fafc",
                 margin=dict(l=20, r=20, t=30, b=20),
             )
             st.plotly_chart(fig_time, use_container_width=True)
@@ -1063,9 +1063,9 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
                 color_discrete_sequence=["#1e3a8a", "#0284c7", "#059669", "#d97706", "#dc2626"],
             )
             fig_stn.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="#0d131f",
-                plot_bgcolor="#111a2c",
+                template="plotly_white",
+                paper_bgcolor="#ffffff",
+                plot_bgcolor="#f8fafc",
                 margin=dict(l=20, r=20, t=30, b=20),
             )
             st.plotly_chart(fig_stn, use_container_width=True)
@@ -1073,7 +1073,7 @@ def render_analytics_view(current_user: Dict[str, Any]) -> None:
             st.info("No station status data available.")
 
     # 6. Incident Drill-down & Ledger Export
-    st.markdown("<hr style='border-color: #1e293b; margin: 16px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: #e2e8f0; margin: 16px 0;'>", unsafe_allow_html=True)
     st.markdown("#### 📋 Executive Incident Drill-Down")
     display_cols = ["case_id", "title", "crime_type", "priority", "status", "station_name", "created_at"]
     avail_cols = [c for c in display_cols if c in filtered_df.columns]
@@ -1121,9 +1121,9 @@ def render_evidence_view(current_user: Dict[str, Any]) -> None:
         if selected_case:
             st.markdown(
                 f"""
-                <div style="background-color: #111a2c; border: 1px solid #1e2e4a; border-radius: 4px; padding: 10px 14px; margin-top: 4px;">
+                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px 14px; margin-top: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                     <strong>Case:</strong> {selected_case.get('title')} • <strong>Station:</strong> {selected_case.get('station_id')} • <strong>Lead IO:</strong> {selected_case.get('io_officer_id')}<br>
-                    <span style="color: #94a3b8; font-size: 12px;">FIR: {selected_case.get('fir_number')} • Priority: {selected_case.get('priority')} • Status: {selected_case.get('status')}</span>
+                    <span style="color: #64748b; font-size: 12px;">FIR: {selected_case.get('fir_number')} • Priority: {selected_case.get('priority')} • Status: {selected_case.get('status')}</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -1243,9 +1243,9 @@ def render_ai_assistant_view(current_user: Dict[str, Any]) -> None:
         if selected_case:
             st.markdown(
                 f"""
-                <div style="background-color: #111a2c; border: 1px solid #1e2e4a; border-radius: 4px; padding: 10px 14px; margin-top: 4px;">
+                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px 14px; margin-top: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                     <strong>{selected_case.get('title')}</strong><br>
-                    <span style="color: #94a3b8; font-size: 12px;">FIR: {selected_case.get('fir_number')} • Station: {selected_case.get('station_id')} • Lead IO: {selected_case.get('io_officer_id')}</span>
+                    <span style="color: #64748b; font-size: 12px;">FIR: {selected_case.get('fir_number')} • Station: {selected_case.get('station_id')} • Lead IO: {selected_case.get('io_officer_id')}</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -1370,16 +1370,16 @@ def render_notifications_view(current_user: Dict[str, Any]) -> None:
 
     for n in notifs:
         unread_tag = "🔴 NEW" if not n.get("is_read") else "⚪ READ"
-        border_col = "#38bdf8" if not n.get("is_read") else "#334155"
+        border_col = "#0284c7" if not n.get("is_read") else "#cbd5e1"
 
         st.markdown(
             f"""
-            <div style="background-color: #111a2c; border-left: 4px solid {border_col}; border-top: 1px solid #1e293b; border-right: 1px solid #1e293b; border-bottom: 1px solid #1e293b; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
+            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid {border_col}; padding: 12px; border-radius: 4px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; justify-content: space-between;">
-                    <strong>{n.get('title')}</strong>
-                    <span style="font-size: 11px; font-weight: 700; color: #94a3b8;">{unread_tag} • {n.get('event_type')}</span>
+                    <strong style="color: #0f172a;">{n.get('title')}</strong>
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b;">{unread_tag} • {n.get('event_type')}</span>
                 </div>
-                <p style="margin: 4px 0; color: #cbd5e1; font-size: 13px;">{n.get('message')}</p>
+                <p style="margin: 4px 0; color: #334155; font-size: 13px;">{n.get('message')}</p>
                 <div style="font-size: 11px; color: #64748b;">
                     Case Reference: <code>{n.get('case_id') or 'N/A'}</code> • Timestamp: {n.get('created_at')}
                 </div>
