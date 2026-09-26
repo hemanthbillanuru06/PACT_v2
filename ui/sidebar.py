@@ -61,17 +61,25 @@ def render_sidebar(current_user: Dict[str, Any]) -> str:
 
         notif_label = f"🔔 Dispatch Alerts ({unread_count})" if unread_count > 0 else "🔔 Dispatch Alerts"
 
-        # Navigation Options for Phase 2
+        # Navigation Options
         nav_options = [
             ("🏢 Command Overview", "overview"),
             ("📁 Case Dossiers (150+)", "cases"),
             ("📑 First Info Reports (FIR)", "firs"),
+            ("🔬 Evidence Locker", "evidence"),
+            ("🤖 AI Tactical Assistant", "ai_assistant"),
             ("🔎 Semantic Case Matcher", "semantic_search"),
-            ("📊 Crime Analytics & Trends", "analytics"),
+        ]
+
+        # Crime Analytics & Maps is accessible EXCLUSIVELY to the SP role
+        if role == settings.ROLE_SP:
+            nav_options.append(("📊 Crime Analytics & Maps (SP)", "analytics"))
+
+        nav_options.extend([
             (notif_label, "notifications"),
             ("📡 Station Registry (10)", "stations"),
             ("🛡️ Personnel Directory", "officers"),
-        ]
+        ])
 
         # Audit Logs visible in menu for ADMIN and SP
         if role in [settings.ROLE_ADMIN, settings.ROLE_SP]:

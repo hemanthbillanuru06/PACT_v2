@@ -48,6 +48,22 @@ section[data-testid="stSidebar"] {
     letter-spacing: 0.3px;
 }
 
+/* Form Field Labels & Legends - High Contrast */
+label,
+.stTextInput label,
+.stSelectbox label,
+.stTextArea label,
+.stDateInput label,
+.stNumberInput label,
+.stMultiSelect label,
+div[data-testid="stWidgetLabel"] p {
+    color: #f1f5f9 !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    letter-spacing: 0.3px !important;
+    margin-bottom: 4px !important;
+}
+
 /* Officer Profile Card in Sidebar */
 .officer-badge-card {
     background-color: #111a2c;
@@ -137,8 +153,8 @@ section[data-testid="stSidebar"] {
     color: #f8fafc;
 }
 
-/* Data Table Overrides */
-div[data-testid="stTable"] {
+/* Data Table & DataFrame Overrides */
+div[data-testid="stTable"], div[data-testid="stDataFrame"] {
     background-color: #111a2c;
     border: 1px solid #1e2e4a;
     border-radius: 6px;
@@ -156,6 +172,7 @@ div[data-testid="stTable"] {
     font-size: 12px;
     color: #cbd5e1;
     margin-bottom: 16px;
+    line-height: 1.5;
 }
 
 /* Button Overrides */
@@ -179,11 +196,40 @@ div.stButton > button:active {
     background-color: #1e40af;
 }
 
-/* Inputs */
+/* Inputs, Textareas, Selectboxes */
 input, textarea, select {
     background-color: #111a2c !important;
     color: #f8fafc !important;
     border: 1px solid #233554 !important;
+    border-radius: 4px !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: #3b82f6 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
+/* Modern Tabs */
+button[data-baseweb="tab"] {
+    color: #94a3b8 !important;
+    font-weight: 600 !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #38bdf8 !important;
+    border-bottom: 2px solid #38bdf8 !important;
+}
+
+/* Radio Navigation Items */
+div[data-testid="stRadio"] label {
+    color: #e2e8f0 !important;
+    font-weight: 500 !important;
+    font-size: 13px !important;
 }
 
 /* Expander */
@@ -191,6 +237,12 @@ div[data-testid="stExpander"] {
     background-color: #111a2c;
     border: 1px solid #1e2e4a;
     border-radius: 4px;
+}
+
+/* Captions */
+.stCaption, [data-testid="stCaptionContainer"] {
+    color: #94a3b8 !important;
+    font-size: 12px !important;
 }
 </style>
 """

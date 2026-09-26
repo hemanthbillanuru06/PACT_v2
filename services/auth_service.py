@@ -9,7 +9,7 @@ from pymongo.database import Database
 
 from config.settings import settings
 from database.connection import get_db, get_users_col, get_officers_col
-from security.passwords import verify_password
+from security.passwords import verify_password, hash_password, validate_password_policy, PasswordPolicyError
 from security.lockout import LockoutManager, AccountLockedError
 from services.audit_service import AuditService
 
@@ -182,3 +182,129 @@ class AuthService:
             return False
         target_db = db if db is not None else get_db()
         return AuditService.log_logout(user=user, ip_address=ip_address, db=target_db)
+
+    @classmethod
+    def register_officer(
+        cls,
+        full_name: str,
+        officer_id: str,
+        email: str,
+        role: str,
+        password: str,
+        badge_number: Optional[str] = None,
+        station_id: Optional[str] = None,
+        rank: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+        blood_group: Optional[str] = "O+",
+        db: Optional[Database] = None,
+    ) -> Dict[str, Any]:
+        """Register a new law enforcement officer in MongoDB users & officers collections.
+
+        Enforces:
+        - Required field validation
+        - Strict password policy (12+ chars, uppercase, lowercase, digit, special char)
+        - Password hashing with bcrypt
+        - Uniqueness check for officer_id and email
+        - Idempotent insertion into users collection and officers directory
+        - Audit trail logging
+        """
+        clean_name = (full_name or "").strip()
+        clean_id = (officer_id or "").strip().upper()
+        clean_email = (email or "").strip().lower()
+        clean_role = (role or "").strip().upper()
+
+        if not clean_name:
+            raise ValueError("Full Name is required.")
+        if not clean_id:
+            raise ValueError("Officer ID is required.")
+        if not clean_email or "@" not in clean_email:
+            raise ValueError("Valid department email is required.")
+        if not clean_role:
+            raise ValueError("Role designation is required.")
+
+        allowed_roles = [
+            settings.ROLE_ADMIN,
+            settings.ROLE_SP,
+            settings.ROLE_SI,
+            settings.ROLE_INVESTIGATING_OFFICER,
+            settings.ROLE_CONSTABLE,
+        ]
+        if clean_role not in allowed_roles:
+            raise ValueError(f"Invalid role '{clean_role}'. Allowed roles: {allowed_roles}")
+
+        # Enforce password policy & hash with bcrypt
+        is_valid, errors = validate_password_policy(password)
+        if not is_valid:
+            raise PasswordPolicyError(" ".join(errors))
+
+        pwd_hash = hash_password(password)
+
+        target_db = db if db is not None else get_db()
+        users_col = get_users_col(target_db)
+        officers_col = get_officers_col(target_db)
+
+        # Check uniqueness in users collection
+        existing = users_col.find_one({
+            "$or": [
+                {"officer_id": clean_id},
+                {"email": clean_email},
+            ]
+        })
+        if existing:
+            if existing.get("officer_id") == clean_id:
+                raise ValueError(f"Officer ID '{clean_id}' is already registered in the system.")
+            raise ValueError(f"Email '{clean_email}' is already registered to another officer.")
+
+        now = datetime.now(timezone.utc)
+        user_doc = {
+            "officer_id": clean_id,
+            "email": clean_email,
+            "role": clean_role,
+            "password_hash": pwd_hash,
+            "is_active": True,
+            "is_locked": False,
+            "failed_login_attempts": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+        res = users_col.insert_one(user_doc)
+
+        clean_badge = (badge_number or "").strip() or f"TS-{clean_role[:3]}-{clean_id[-4:]}"
+        clean_station = (station_id or "").strip() or "STN-001"
+        clean_rank = (rank or "").strip() or clean_role
+
+        officer_doc = {
+            "officer_id": clean_id,
+            "badge_number": clean_badge,
+            "full_name": clean_name,
+            "rank": clean_rank,
+            "station_id": clean_station,
+            "contact_phone": (contact_phone or "").strip() or "+91-9440-000000",
+            "blood_group": (blood_group or "").strip() or "O+",
+            "updated_at": now,
+        }
+        officers_col.update_one(
+            {"officer_id": clean_id},
+            {"$set": officer_doc, "$setOnInsert": {"created_at": now}},
+            upsert=True,
+        )
+
+        AuditService.log_event(
+            event_type="OFFICER_REGISTERED",
+            officer_id=clean_id,
+            role=clean_role,
+            details={"officer_id": clean_id, "email": clean_email, "station_id": clean_station},
+            status="SUCCESS",
+            db=target_db,
+        )
+
+        return {
+            "user_id": str(res.inserted_id),
+            "officer_id": clean_id,
+            "email": clean_email,
+            "role": clean_role,
+            "full_name": clean_name,
+            "badge_number": clean_badge,
+            "station_id": clean_station,
+            "rank": clean_rank,
+        }

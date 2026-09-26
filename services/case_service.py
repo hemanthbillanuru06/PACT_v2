@@ -85,6 +85,22 @@ class CaseSecurityValidator:
 
         return False
 
+    @staticmethod
+    def can_create_fir(current_user: Any) -> bool:
+        """Check if an officer role is permitted to create FIRs.
+        Explicitly permits CONSTABLE and SI roles (along with IO, SP, and ADMIN).
+        """
+        if not current_user:
+            return False
+        role = current_user.get("role") if hasattr(current_user, "get") else getattr(current_user, "role", None)
+        return role in [
+            settings.ROLE_CONSTABLE,
+            settings.ROLE_SI,
+            settings.ROLE_INVESTIGATING_OFFICER,
+            settings.ROLE_SP,
+            settings.ROLE_ADMIN,
+        ]
+
     @classmethod
     def enforce_case_access(
         cls,
@@ -144,8 +160,20 @@ class CaseService:
         session: Any = None,
         **kwargs
     ) -> Union[bool, FIRRecord]:
-        """Create a new FIR. Accessible to SI, SP, and ADMIN or IO when allowed."""
+        """Create a new FIR. Accessible to CONSTABLE, SI, IO, SP, and ADMIN."""
         user = session or current_user
+        if user:
+            enforce_role(
+                user,
+                allowed_roles=[
+                    settings.ROLE_CONSTABLE,
+                    settings.ROLE_SI,
+                    settings.ROLE_INVESTIGATING_OFFICER,
+                    settings.ROLE_SP,
+                    settings.ROLE_ADMIN,
+                ],
+                resource_name="firs:create",
+            )
         target_db = CaseService._resolve_db(caller, db)
         col = get_firs_col(target_db)
 

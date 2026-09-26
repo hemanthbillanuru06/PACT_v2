@@ -1,12 +1,16 @@
 """Main Command Center Dashboard Shell and views for PACT Phase 1 and Phase 2."""
+import os
+import hashlib
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import pydeck as pdk
 import streamlit as st
 
 from config.settings import settings
+from database.connection import get_db
 from security.rbac import get_role_permissions, UnauthorizedAccessError
 from services.case_service import CaseService, CaseSecurityValidator
 from services.entity_service import EntityService
@@ -49,6 +53,10 @@ def render_dashboard(current_user: Dict[str, Any], active_nav: str) -> None:
         render_cases_view(current_user)
     elif active_nav == "firs":
         render_firs_view(current_user)
+    elif active_nav == "evidence":
+        render_evidence_view(current_user)
+    elif active_nav == "ai_assistant":
+        render_ai_assistant_view(current_user)
     elif active_nav == "semantic_search":
         render_semantic_search_view(current_user)
     elif active_nav == "analytics":
@@ -620,57 +628,80 @@ def render_single_case_dossier(current_user: Dict[str, Any], case: Dict[str, Any
 # View 3: First Information Reports (FIRs)
 # =============================================================================
 def render_firs_view(current_user: Dict[str, Any]) -> None:
-    """Render FIR directory and registration."""
+    """Render FIR directory and registration with tabbed, uncluttered layout."""
     st.subheader("📑 First Information Reports (FIR Registry)")
-    st.caption("Initial crime disclosures registered under Criminal Procedure Code.")
+    st.caption("Official initial crime disclosures registered under the Code of Criminal Procedure.")
 
-    role = current_user.get("role")
-    can_create_fir = role in [settings.ROLE_ADMIN, settings.ROLE_SP, settings.ROLE_SI]
+    tab_all, tab_register = st.tabs(["📋 Registered FIRs Ledger", "➕ Lodge New FIR"])
 
-    if can_create_fir:
-        with st.expander("➕ Register New First Information Report (FIR)"):
+    with tab_register:
+        can_create_fir = CaseSecurityValidator.can_create_fir(current_user)
+        if can_create_fir:
+            st.markdown("##### Register & Lodge First Information Report")
+            st.caption("Sworn law enforcement personnel clearance: CONSTABLE, SI, IO, SP, ADMIN authorized.")
+
             with st.form("form_register_fir"):
                 c1, c2 = st.columns(2)
                 with c1:
-                    fir_no = st.text_input("FIR Number", placeholder="e.g. TS/CYB/2026/0145")
-                    stn = st.selectbox("Station", options=[f"STN-00{i}" for i in range(1, 10)] + ["STN-010"])
+                    fir_no = st.text_input("FIR Number", placeholder="e.g. TS/CYB/2026/0145", help="Unique state FIR registration number")
+                    stn = st.selectbox("Assigned Police Station", options=[f"STN-00{i}" for i in range(1, 10)] + ["STN-010"])
                     c_type = st.selectbox("Crime Classification", [
                         "Vehicle Theft", "Cyber Crime & Online Fraud", "Burglary & House Breaking",
                         "Armed Robbery", "Commercial Narcotics Trafficking", "Corporate Financial Embezzlement",
-                        "Extortion & Kidnapping", "Homicide Investigation"
+                        "Extortion & Kidnapping", "Homicide Investigation", "Chain Snatching", "Assault"
                     ])
                     comp_name = st.text_input("Complainant Full Name")
                 with c2:
-                    comp_phone = st.text_input("Complainant Contact")
-                    loc = st.text_input("Place of Occurrence")
-                    desc = st.text_area("Detailed Crime Narrative / Allegation")
+                    comp_phone = st.text_input("Complainant Contact / Mobile")
+                    loc = st.text_input("Place of Occurrence (Detailed)")
+                    desc = st.text_area("Detailed Crime Narrative / Allegations")
 
-                if st.form_submit_button("Submit & Lodge FIR"):
-                    if not fir_no or not comp_name or not desc:
-                        st.error("FIR number, complainant name, and description are required.")
+                submit_fir_btn = st.form_submit_button("SUBMIT & LODGE FIR", use_container_width=True)
+
+                if submit_fir_btn:
+                    if not fir_no.strip() or not comp_name.strip() or not desc.strip():
+                        st.error("FIR number, complainant name, and crime narrative are required.")
                     else:
-                        CaseService.create_fir(current_user, {
-                            "fir_number": fir_no,
-                            "station_id": stn,
-                            "crime_type": c_type,
-                            "complainant_name": comp_name,
-                            "complainant_phone": comp_phone,
-                            "place_of_occurrence": loc,
-                            "description": desc,
-                            "incident_date": datetime.now(),
-                            "reported_date": datetime.now(),
-                        })
-                        st.success(f"FIR {fir_no} successfully lodged.")
-                        st.rerun()
+                        try:
+                            CaseService.create_fir(current_user, {
+                                "fir_number": fir_no.strip(),
+                                "station_id": stn,
+                                "crime_type": c_type,
+                                "complainant_name": comp_name.strip(),
+                                "complainant_phone": comp_phone.strip() if comp_phone else "N/A",
+                                "place_of_occurrence": loc.strip() if loc else "N/A",
+                                "description": desc.strip(),
+                                "incident_date": datetime.now(),
+                                "reported_date": datetime.now(),
+                            })
+                            st.success(f"✅ First Information Report **{fir_no}** successfully lodged and persisted to database.")
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"Failed to register FIR: {err}")
+        else:
+            st.warning("Your operational role does not possess authorization to register new First Information Reports.")
 
-    firs = CaseService.get_firs(current_user)
-    if firs:
-        df = pd.DataFrame(firs)
-        cols = ["fir_number", "station_id", "crime_type", "complainant_name", "status", "reported_date"]
-        avail = [c for c in cols if c in df.columns]
-        st.dataframe(df[avail], use_container_width=True, hide_index=True)
-    else:
-        st.info("No FIRs registered.")
+    with tab_all:
+        firs = CaseService.get_firs(current_user)
+        if firs:
+            df = pd.DataFrame(firs)
+            fc1, fc2 = st.columns([3, 1])
+            with fc1:
+                search_fir = st.text_input("Search FIRs by Number or Complainant", placeholder="e.g. TS/NORTH or Suresh", key="search_fir_input")
+            with fc2:
+                st.write("")
+                st.write("")
+                st.caption(f"Total Jurisdictional FIRs: **{len(df)}**")
+
+            if search_fir.strip():
+                sf = search_fir.strip().lower()
+                df = df[df.apply(lambda r: sf in str(r.get("fir_number", "")).lower() or sf in str(r.get("complainant_name", "")).lower() or sf in str(r.get("crime_type", "")).lower(), axis=1)]
+
+            cols = ["fir_number", "station_id", "crime_type", "complainant_name", "status", "reported_date"]
+            avail = [c for c in cols if c in df.columns]
+            st.dataframe(df[avail], use_container_width=True, hide_index=True)
+        else:
+            st.info("No FIRs registered in your jurisdictional scope.")
 
 
 # =============================================================================
@@ -756,92 +787,564 @@ def render_semantic_search_view(current_user: Dict[str, Any]) -> None:
 
 
 # =============================================================================
-# View 5: Crime Analytics & Trends (Plotly Charts on Real DB Data)
+# View 5: SP Crime Analytics & Geospatial Tactical Intelligence
 # =============================================================================
 def render_analytics_view(current_user: Dict[str, Any]) -> None:
-    """Render Plotly crime analytics based strictly on real MongoDB data."""
-    st.subheader("📊 Crime Analytics & Tactical Intelligence")
-    st.caption("Real-time visual telemetry derived strictly from actual MongoDB case collections.")
+    """Render dedicated, consolidated Crime Analytics and Geospatial Intelligence Dashboard.
 
-    metrics = ReportService.get_analytics_metrics(current_user)
+    Accessible EXCLUSIVELY to the Superintendent of Police (SP) role.
+    """
+    role = current_user.get("role")
+    if role != settings.ROLE_SP:
+        st.error("🛡️ RESTRICTED ACCESS: The Crime Analytics & Geospatial Command Center is accessible exclusively to the Superintendent of Police (SP).")
+        st.info("Your current operational rank does not possess department-wide executive oversight clearance for tactical mapping and precinct analytics.")
+        return
 
-    c1, c2 = st.columns(2)
-    with c1:
+    st.subheader("📊 Executive Crime Analytics & Geospatial Command Center")
+    st.caption("Consolidated department-wide crime mapping, priority distribution, temporal velocity, and precinct caseload for Superintendent of Police (SP) oversight.")
+
+    # 1. Query real MongoDB data
+    db = get_db()
+    stations_list = list(db.police_registry.find({}, {"_id": 0}))
+    stations_by_id = {s["station_id"]: s for s in stations_list}
+
+    all_cases = list(db.cases.find({}, {"_id": 0}))
+    if not all_cases:
+        st.warning("No cases recorded in database.")
+        return
+
+    df_cases = pd.DataFrame(all_cases)
+
+    # Map each case to latitude and longitude based on station registry coordinates
+    latitudes = []
+    longitudes = []
+    station_names = []
+
+    for _, row in df_cases.iterrows():
+        stn_id = row.get("station_id")
+        stn = stations_by_id.get(stn_id)
+        if not stn:
+            for s in stations_list:
+                if s.get("name") and (stn_id in s["name"] or s["name"] in str(stn_id)):
+                    stn = s
+                    break
+        if stn and "latitude" in stn and "longitude" in stn:
+            # Deterministic micro-jitter so individual incidents scatter realistically across the station's precinct jurisdiction
+            c_hash = int(hashlib.md5(str(row.get("case_id", "")).encode()).hexdigest()[:6], 16)
+            lat_offset = ((c_hash % 200) - 100) * 0.00015
+            lon_offset = (((c_hash // 200) % 200) - 100) * 0.00015
+            latitudes.append(stn["latitude"] + lat_offset)
+            longitudes.append(stn["longitude"] + lon_offset)
+            station_names.append(stn.get("name", "Unknown Station"))
+        else:
+            latitudes.append(17.4401)
+            longitudes.append(78.3489)
+            station_names.append("Central Jurisdiction")
+
+    df_cases["latitude"] = latitudes
+    df_cases["longitude"] = longitudes
+    df_cases["station_name"] = station_names
+
+    # Color coding for PyDeck mapping:
+    # Critical: Red, High: Orange, Medium: Blue, Low: Green
+    def get_color(prio):
+        prio_upper = str(prio).upper()
+        if prio_upper == "CRITICAL":
+            return [220, 38, 38, 210]
+        elif prio_upper == "HIGH":
+            return [249, 115, 22, 200]
+        elif prio_upper == "MEDIUM":
+            return [59, 130, 246, 180]
+        else:
+            return [16, 185, 129, 170]
+
+    df_cases["color"] = df_cases["priority"].apply(get_color)
+
+    # 2. Executive KPI Summary Ribbon
+    total_cases = len(df_cases)
+    crit_cases = len(df_cases[df_cases["priority"].isin(["CRITICAL", "HIGH"])])
+    under_inv = len(df_cases[df_cases["status"] == "UNDER INVESTIGATION"])
+    closed_cases = len(df_cases[df_cases["status"].isin(["CLOSED", "CHARGESHEETED"])])
+    resolution_rate = round((closed_cases / total_cases * 100), 1) if total_cases > 0 else 0
+
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+    with kpi1:
+        st.markdown(f'<div class="metric-box"><div class="metric-label">Total Department Cases</div><div class="metric-val">{total_cases}</div></div>', unsafe_allow_html=True)
+    with kpi2:
+        st.markdown(f'<div class="metric-box"><div class="metric-label">High / Critical Alerts</div><div class="metric-val" style="color: #ef4444;">{crit_cases}</div></div>', unsafe_allow_html=True)
+    with kpi3:
+        st.markdown(f'<div class="metric-box"><div class="metric-label">Under Active Investigation</div><div class="metric-val" style="color: #38bdf8;">{under_inv}</div></div>', unsafe_allow_html=True)
+    with kpi4:
+        st.markdown(f'<div class="metric-box"><div class="metric-label">Resolution / Closed Rate</div><div class="metric-val" style="color: #10b981;">{resolution_rate}%</div></div>', unsafe_allow_html=True)
+    with kpi5:
+        st.markdown(f'<div class="metric-box"><div class="metric-label">Monitored Stations</div><div class="metric-val">{len(stations_list)}</div></div>', unsafe_allow_html=True)
+
+    # 3. Interactive Filters
+    st.markdown("<hr style='border-color: #1e293b; margin: 12px 0;'>", unsafe_allow_html=True)
+    fc1, fc2, fc3, fc4 = st.columns(4)
+    with fc1:
+        station_filter = st.selectbox("Filter Police Station", ["ALL STATIONS"] + sorted([s["name"] for s in stations_list]), key="sp_flt_station")
+    with fc2:
+        all_crimes = sorted(list(df_cases["crime_type"].dropna().unique()))
+        crime_filter = st.selectbox("Filter Crime Classification", ["ALL CRIMES"] + all_crimes, key="sp_flt_crime")
+    with fc3:
+        prio_filter = st.selectbox("Filter Priority", ["ALL PRIORITIES", "CRITICAL", "HIGH", "MEDIUM", "LOW"], key="sp_flt_prio")
+    with fc4:
+        status_filter = st.selectbox("Filter Status", ["ALL STATUSES", "UNDER INVESTIGATION", "OPEN", "CHARGESHEETED", "CLOSED", "COLD_CASE"], key="sp_flt_status")
+
+    # Apply filters
+    filtered_df = df_cases.copy()
+    if station_filter != "ALL STATIONS":
+        filtered_df = filtered_df[filtered_df["station_name"] == station_filter]
+    if crime_filter != "ALL CRIMES":
+        filtered_df = filtered_df[filtered_df["crime_type"] == crime_filter]
+    if prio_filter != "ALL PRIORITIES":
+        filtered_df = filtered_df[filtered_df["priority"] == prio_filter]
+    if status_filter != "ALL STATUSES":
+        filtered_df = filtered_df[filtered_df["status"] == status_filter]
+
+    st.caption(f"Displaying **{len(filtered_df)}** of {total_cases} cases matching filters.")
+
+    # 4. Map Visualizations
+    st.markdown("### 🗺️ Geospatial Crime Incident Distribution")
+    st.caption("Interactive street-level crime incident mapping across Cyberabad & Hyderabad police jurisdictions.")
+
+    map_tab_tactical, map_tab_native = st.tabs(["🛰️ Tactical Deck Map (3D / High-Contrast)", "🗺️ Streamlit Native Map"])
+
+    with map_tab_tactical:
+        df_stn_geo = pd.DataFrame(stations_list)
+        df_stn_geo["color"] = [[234, 179, 8, 240]] * len(df_stn_geo)
+        df_stn_geo["radius"] = 350
+
+        incidents_layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=filtered_df,
+            get_position=["longitude", "latitude"],
+            get_color="color",
+            get_radius=180,
+            pickable=True,
+            auto_highlight=True,
+        )
+
+        stations_layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=df_stn_geo,
+            get_position=["longitude", "latitude"],
+            get_color="color",
+            get_radius="radius",
+            pickable=True,
+            auto_highlight=True,
+        )
+
+        view_state = pdk.ViewState(
+            latitude=17.4300,
+            longitude=78.4100,
+            zoom=11,
+            pitch=35,
+        )
+
+        deck = pdk.Deck(
+            layers=[stations_layer, incidents_layer],
+            initial_view_state=view_state,
+            tooltip={
+                "html": "<b>{title}</b><br/>ID: <code>{case_id}</code><br/>Crime: {crime_type}<br/>Priority: {priority}<br/>Status: {status}<br/>Station: {station_name}",
+                "style": {"backgroundColor": "#0d131f", "color": "#f8fafc", "border": "1px solid #1e293b", "fontSize": "12px", "padding": "8px"},
+            },
+        )
+        st.pydeck_chart(deck, use_container_width=True)
+
+        st.markdown(
+            """
+            <div style="display: flex; gap: 16px; font-size: 12px; margin-top: 4px; color: #94a3b8; flex-wrap: wrap;">
+                <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; margin-right: 4px;"></span> Critical Priority</div>
+                <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #f97316; border-radius: 50%; margin-right: 4px;"></span> High Priority</div>
+                <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #3b82f6; border-radius: 50%; margin-right: 4px;"></span> Medium Priority</div>
+                <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; margin-right: 4px;"></span> Low Priority</div>
+                <div><span style="display: inline-block; width: 10px; height: 10px; background-color: #eab308; border-radius: 50%; margin-right: 4px;"></span> Police Station Post</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with map_tab_native:
+        if not filtered_df.empty:
+            st.map(filtered_df[["latitude", "longitude"]], zoom=11)
+        else:
+            st.info("No matching incident locations to display.")
+
+    # 5. Consolidated Plotly Charts Grouped Together
+    st.markdown("<hr style='border-color: #1e293b; margin: 20px 0;'>", unsafe_allow_html=True)
+    st.markdown("### 📈 Tactical Crime Analytics & Trends")
+
+    chart_c1, chart_c2 = st.columns(2)
+
+    with chart_c1:
         st.markdown("#### Crime Distribution by Classification")
-        crime_data = metrics.get("by_crime_type", {})
-        if crime_data:
-            df_crime = pd.DataFrame(list(crime_data.items()), columns=["Crime Type", "Cases"])
-            fig_crime = px.bar(
-                df_crime,
-                x="Cases",
-                y="Crime Type",
-                orientation="h",
-                color="Cases",
-                color_continuous_scale="Blues",
+        crime_counts = filtered_df["crime_type"].value_counts().reset_index()
+        crime_counts.columns = ["Crime Classification", "Incidents"]
+        fig_crime = px.bar(
+            crime_counts,
+            x="Incidents",
+            y="Crime Classification",
+            orientation="h",
+            color="Incidents",
+            color_continuous_scale="Blues",
+        )
+        fig_crime.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#0d131f",
+            plot_bgcolor="#111a2c",
+            margin=dict(l=20, r=20, t=30, b=20),
+            yaxis=dict(autorange="reversed"),
+        )
+        st.plotly_chart(fig_crime, use_container_width=True)
+
+    with chart_c2:
+        st.markdown("#### Priority Allocation Breakdown")
+        prio_counts = filtered_df["priority"].value_counts().reset_index()
+        prio_counts.columns = ["Priority", "Count"]
+        prio_color_map = {
+            "CRITICAL": "#ef4444",
+            "HIGH": "#f97316",
+            "MEDIUM": "#3b82f6",
+            "LOW": "#10b981",
+        }
+        fig_prio = px.pie(
+            prio_counts,
+            names="Priority",
+            values="Count",
+            hole=0.45,
+            color="Priority",
+            color_discrete_map=prio_color_map,
+        )
+        fig_prio.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#0d131f",
+            margin=dict(l=20, r=20, t=30, b=20),
+        )
+        st.plotly_chart(fig_prio, use_container_width=True)
+
+    # Row 2: Cases Over Time & Station Caseload Pipeline
+    chart_c3, chart_c4 = st.columns(2)
+
+    with chart_c3:
+        st.markdown("#### Cases Registered Over Time (Temporal Velocity)")
+        df_time = filtered_df.copy()
+        if "created_at" in df_time.columns and not df_time.empty:
+            df_time["Month"] = pd.to_datetime(df_time["created_at"]).dt.strftime("%Y-%m")
+            time_counts = df_time.groupby("Month").size().reset_index(name="Registered Cases").sort_values("Month")
+            fig_time = px.area(
+                time_counts,
+                x="Month",
+                y="Registered Cases",
+                markers=True,
+                color_discrete_sequence=["#38bdf8"],
             )
-            fig_crime.update_layout(
+            fig_time.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="#0d131f",
                 plot_bgcolor="#111a2c",
                 margin=dict(l=20, r=20, t=30, b=20),
             )
-            st.plotly_chart(fig_crime, use_container_width=True)
+            st.plotly_chart(fig_time, use_container_width=True)
         else:
-            st.info("No crime data available.")
+            st.info("No temporal records available.")
 
-    with c2:
-        st.markdown("#### Case Status Pipeline")
-        status_data = metrics.get("by_status", {})
-        if status_data:
-            df_status = pd.DataFrame(list(status_data.items()), columns=["Status", "Cases"])
-            fig_status = px.pie(
-                df_status,
-                names="Status",
-                values="Cases",
-                hole=0.45,
+    with chart_c4:
+        st.markdown("#### Station Caseload Pipeline & Resolution")
+        if not filtered_df.empty:
+            stn_status = filtered_df.groupby(["station_id", "status"]).size().reset_index(name="Cases")
+            fig_stn = px.bar(
+                stn_status,
+                x="station_id",
+                y="Cases",
+                color="status",
+                barmode="stack",
                 color_discrete_sequence=["#1e3a8a", "#0284c7", "#059669", "#d97706", "#dc2626"],
             )
-            fig_status.update_layout(
+            fig_stn.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="#0d131f",
+                plot_bgcolor="#111a2c",
                 margin=dict(l=20, r=20, t=30, b=20),
             )
-            st.plotly_chart(fig_status, use_container_width=True)
+            st.plotly_chart(fig_stn, use_container_width=True)
         else:
-            st.info("No status data available.")
+            st.info("No station status data available.")
 
-    st.markdown("#### Station Caseload Breakdown")
-    station_data = metrics.get("by_station", {})
-    if station_data:
-        df_stn = pd.DataFrame(list(station_data.items()), columns=["Station", "Case Count"])
-        fig_stn = px.bar(
-            df_stn,
-            x="Station",
-            y="Case Count",
-            color="Case Count",
-            color_continuous_scale="Teal",
-        )
-        fig_stn.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#0d131f",
-            plot_bgcolor="#111a2c",
-            margin=dict(l=20, r=20, t=30, b=20),
-        )
-        st.plotly_chart(fig_stn, use_container_width=True)
+    # 6. Incident Drill-down & Ledger Export
+    st.markdown("<hr style='border-color: #1e293b; margin: 16px 0;'>", unsafe_allow_html=True)
+    st.markdown("#### 📋 Executive Incident Drill-Down")
+    display_cols = ["case_id", "title", "crime_type", "priority", "status", "station_name", "created_at"]
+    avail_cols = [c for c in display_cols if c in filtered_df.columns]
+    st.dataframe(filtered_df[avail_cols], use_container_width=True, hide_index=True)
 
-    # CSV Export Button
-    st.markdown("#### Export Case Registry Ledger")
-    try:
-        csv_text, csv_filename = ReportService.generate_cases_csv(current_user)
-        st.download_button(
-            label="📥 Download Station Case Ledger (CSV)",
-            data=csv_text,
-            file_name=csv_filename,
-            mime="text/csv",
-            use_container_width=True,
+    csv_text, csv_filename = ReportService.generate_cases_csv(current_user)
+    st.download_button(
+        label="📥 Download Department Case Ledger (CSV)",
+        data=csv_text,
+        file_name=csv_filename,
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
+# =============================================================================
+# View 5b: Dedicated Evidence Vault Module
+# =============================================================================
+def render_evidence_view(current_user: Dict[str, Any]) -> None:
+    """Dedicated Evidence Vault module for managing and uploading evidence."""
+    st.subheader("🔬 Evidence Vault & Chain of Custody")
+    st.caption("Secure physical and digital evidence management with SHA-256 cryptographic verification and path-traversal protection.")
+
+    cases = CaseService.get_cases(current_user, limit=200)
+    if not cases:
+        st.warning("No accessible cases found for your operational clearance.")
+        return
+
+    case_ids = [c["case_id"] for c in cases]
+    default_case = st.session_state.get("selected_case_id")
+    default_idx = case_ids.index(default_case) if default_case in case_ids else 0
+
+    col_sel, col_info = st.columns([2, 3])
+    with col_sel:
+        selected_case_id = st.selectbox(
+            "Select Case for Evidence Management",
+            options=case_ids,
+            index=default_idx,
+            key="ev_vault_case_sel",
         )
-    except Exception as err:
-        st.error(f"CSV export error: {err}")
+        st.session_state["selected_case_id"] = selected_case_id
+
+    selected_case = next((c for c in cases if c["case_id"] == selected_case_id), None)
+    with col_info:
+        if selected_case:
+            st.markdown(
+                f"""
+                <div style="background-color: #111a2c; border: 1px solid #1e2e4a; border-radius: 4px; padding: 10px 14px; margin-top: 4px;">
+                    <strong>Case:</strong> {selected_case.get('title')} • <strong>Station:</strong> {selected_case.get('station_id')} • <strong>Lead IO:</strong> {selected_case.get('io_officer_id')}<br>
+                    <span style="color: #94a3b8; font-size: 12px;">FIR: {selected_case.get('fir_number')} • Priority: {selected_case.get('priority')} • Status: {selected_case.get('status')}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    tab_vault, tab_upload, tab_custody = st.tabs([
+        "📦 Evidence Inventory",
+        "➕ Register & Ingest New Item",
+        "⛓️ Auditable Chain of Custody",
+    ])
+
+    with tab_vault:
+        evidence_list = EvidenceService.get_case_evidence(current_user, selected_case_id)
+        if evidence_list:
+            st.markdown(f"**Total Registered Evidence Items:** {len(evidence_list)}")
+            for ev in evidence_list:
+                ev_id = ev.get("evidence_id")
+                with st.expander(f"📦 {ev.get('name')} ({ev.get('evidence_type')}) — ID: {ev_id}", expanded=True):
+                    c1, c2 = st.columns([3, 1])
+                    with c1:
+                        st.write(f"**Description:** {ev.get('description') or 'N/A'}")
+                        st.write(f"**Current Custodian:** `{ev.get('current_custodian_id')}` • **Storage Location:** {ev.get('storage_location')}")
+                        st.code(f"SHA-256: {ev.get('sha256_hash')}", language="text")
+                        st.caption(f"MIME Type: {ev.get('mime_type')} • Size: {ev.get('file_size_bytes')} bytes")
+                    with c2:
+                        try:
+                            file_bytes, orig_name, mime = EvidenceService.download_evidence(current_user, ev_id)
+                            st.download_button(
+                                label="⬇️ Download File",
+                                data=file_bytes,
+                                file_name=orig_name,
+                                mime=mime,
+                                key=f"vault_dl_{ev_id}",
+                                use_container_width=True,
+                            )
+                        except Exception as err:
+                            st.warning(f"Download unavailable: {err}")
+        else:
+            st.info(f"No evidence registered yet for case {selected_case_id}.")
+
+    with tab_upload:
+        can_write = CaseSecurityValidator.can_access_case(current_user, selected_case, require_write=True)
+        if can_write:
+            with st.form(f"form_ev_vault_upload_{selected_case_id}", clear_on_submit=True):
+                st.markdown("##### Secure Evidence File Ingestion")
+                ev_name = st.text_input("Evidence Item Name", placeholder="e.g. CCTV Footages, Stolen Laptop, Forensic Lab Report")
+                ev_type = st.selectbox("Evidence Classification", ["DIGITAL_MEDIA", "DOCUMENT", "PHYSICAL", "FORENSIC", "WEAPON"])
+                ev_loc = st.text_input("Storage Location", value="Central Evidence Locker, Cyberabad")
+                ev_desc = st.text_area("Item Description and Recovery Circumstances")
+                uploaded_file = st.file_uploader("Upload Evidence File", type=["mp4", "jpg", "png", "pdf", "txt", "doc", "bin"])
+                submit_ev = st.form_submit_button("Ingest & Securely Hash Evidence", use_container_width=True)
+
+                if submit_ev:
+                    if not ev_name or not uploaded_file:
+                        st.error("Evidence item name and file are required.")
+                    else:
+                        content = uploaded_file.read()
+                        res = EvidenceService.register_evidence(
+                            current_user=current_user,
+                            case_id=selected_case_id,
+                            content=content,
+                            original_filename=uploaded_file.name,
+                            name=ev_name,
+                            evidence_type=ev_type,
+                            description=ev_desc,
+                            storage_location=ev_loc,
+                        )
+                        st.success(f"✅ Evidence item '{ev_name}' registered successfully with ID `{res['evidence_id']}`!")
+                        st.rerun()
+        else:
+            st.warning("Your operational role does not possess write clearance to ingest evidence for this case.")
+
+    with tab_custody:
+        st.markdown("##### Chain of Custody History")
+        custody_entries = EvidenceService.get_case_custody_history(current_user, selected_case_id)
+        if custody_entries:
+            st.dataframe(pd.DataFrame(custody_entries)[["evidence_id", "action", "action_by", "transfer_to", "reason", "timestamp"]], use_container_width=True, hide_index=True)
+        else:
+            st.info("No chain of custody logs recorded for this case.")
+
+
+# =============================================================================
+# View 5c: Dedicated Gemini AI Tactical Assistant Module
+# =============================================================================
+def render_ai_assistant_view(current_user: Dict[str, Any]) -> None:
+    """Dedicated Google Gemini AI Tactical Assistant module."""
+    st.subheader("🤖 Google Gemini Tactical Intelligence Assistant")
+    st.caption("AI-powered investigative analysis grounded strictly on verified MongoDB case facts, FIR records, timeline milestones, and evidence logs.")
+
+    api_key_configured = bool(getattr(settings, "GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", ""))
+    if api_key_configured:
+        st.success(f"● Gemini Engine Online • Model: `{settings.GEMINI_MODEL}` • Grounding Enforced")
+    else:
+        st.warning("⚠️ Gemini Engine Offline: `GEMINI_API_KEY` is not set in `.env`. Case dossiers, evidence tracking, and semantic search remain 100% operational.")
+
+    cases = CaseService.get_cases(current_user, limit=200)
+    if not cases:
+        st.warning("No accessible cases found for your operational clearance.")
+        return
+
+    case_ids = [c["case_id"] for c in cases]
+    default_case = st.session_state.get("selected_case_id")
+    default_idx = case_ids.index(default_case) if default_case in case_ids else 0
+
+    col_c1, col_c2 = st.columns([2, 3])
+    with col_c1:
+        selected_case_id = st.selectbox(
+            "Select Case Dossier for AI Consultation",
+            options=case_ids,
+            index=default_idx,
+            key="ai_view_case_sel",
+        )
+        st.session_state["selected_case_id"] = selected_case_id
+
+    selected_case = next((c for c in cases if c["case_id"] == selected_case_id), None)
+    with col_c2:
+        if selected_case:
+            st.markdown(
+                f"""
+                <div style="background-color: #111a2c; border: 1px solid #1e2e4a; border-radius: 4px; padding: 10px 14px; margin-top: 4px;">
+                    <strong>{selected_case.get('title')}</strong><br>
+                    <span style="color: #94a3b8; font-size: 12px;">FIR: {selected_case.get('fir_number')} • Station: {selected_case.get('station_id')} • Lead IO: {selected_case.get('io_officer_id')}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    tab_structured, tab_qa, tab_history = st.tabs([
+        "🧠 Structured Case Intelligence",
+        "💬 Interactive Officer Q&A",
+        "📜 Historical AI Consultations",
+    ])
+
+    with tab_structured:
+        analysis_labels = {
+            "CASE_SUMMARY": "📋 Executive Case Summary (Senior Leadership)",
+            "INVESTIGATION_BRIEF": "🔍 Tactical Detective Briefing (MO & Leads)",
+            "EVIDENCE_SUMMARY": "🔬 Evidence & Forensics Integrity Assessment",
+            "TIMELINE_ANALYSIS": "⏱️ Timeline Reconstruction & Chronological Gap Analysis",
+            "INVESTIGATIVE_QUESTIONS": "❓ Strategic Interrogation & Inquiry Question Generator",
+            "CASE_COMPARISON": "⚖️ Side-by-Side Case Comparison",
+        }
+        col_type, col_action = st.columns([3, 2])
+        with col_type:
+            selected_analysis = st.selectbox(
+                "Select Intelligence Product",
+                options=list(analysis_labels.keys()),
+                format_func=lambda x: analysis_labels.get(x, x),
+                key=f"sel_ai_product_{selected_case_id}",
+            )
+        comp_case_id = None
+        if selected_analysis == "CASE_COMPARISON":
+            other_ids = [c["case_id"] for c in cases if c["case_id"] != selected_case_id]
+            if other_ids:
+                comp_case_id = st.selectbox("Select Case to Compare Against", options=other_ids, key=f"sel_comp_view_{selected_case_id}")
+            else:
+                st.info("No other accessible cases available for comparison.")
+
+        with col_action:
+            st.write("")
+            st.write("")
+            run_btn = st.button("⚡ Generate AI Intelligence", key=f"btn_run_ai_view_{selected_case_id}", use_container_width=True)
+
+        if run_btn:
+            with st.spinner("Synthesizing verified case dossier facts with Gemini AI..."):
+                res = GeminiService.analyze_case(
+                    current_user=current_user,
+                    case_id=selected_case_id,
+                    analysis_type=selected_analysis,
+                    comparison_case_id=comp_case_id,
+                )
+                st.session_state[f"last_ai_result_{selected_case_id}"] = res.to_dict()
+
+        last_res = st.session_state.get(f"last_ai_result_{selected_case_id}")
+        if last_res:
+            st.markdown("---")
+            if last_res.get("status") == "SUCCESS":
+                st.markdown(f"#### Verified Intelligence Report: `{last_res.get('analysis_type')}`")
+                st.caption(f"Generated in {last_res.get('duration_seconds')}s • Grounded strictly on dossier facts")
+                st.markdown(last_res.get("output", ""))
+            elif last_res.get("status") == "KEY_MISSING":
+                st.info(last_res.get("error_message"))
+            else:
+                st.error(last_res.get("error_message", "AI processing encountered an error."))
+
+    with tab_qa:
+        st.markdown("##### Grounded Officer Investigative Q&A")
+        st.caption("Ask questions strictly bounded to verified facts, suspects, statements, and timeline in this case.")
+        qa_c1, qa_c2 = st.columns([4, 1])
+        with qa_c1:
+            q_text = st.text_input("Enter your investigative question", placeholder="e.g. What were the specific actions taken during first response? Who are the alibi witnesses?", key=f"qa_input_view_{selected_case_id}")
+        with qa_c2:
+            st.write("")
+            st.write("")
+            qa_ask_btn = st.button("🔍 Inquire", key=f"qa_btn_view_{selected_case_id}", use_container_width=True)
+
+        if qa_ask_btn and q_text.strip():
+            with st.spinner("Consulting case dossier facts..."):
+                qa_res = GeminiService.analyze_case(
+                    current_user=current_user,
+                    case_id=selected_case_id,
+                    analysis_type="OFFICER_QA",
+                    officer_query=q_text.strip(),
+                )
+                if qa_res.status == "SUCCESS":
+                    st.markdown("---")
+                    st.markdown("##### AI Grounded Response")
+                    st.markdown(qa_res.output)
+                else:
+                    st.error(qa_res.error_message or "AI inquiry failed.")
+
+    with tab_history:
+        st.markdown("##### Historical AI Case Analysis Logs")
+        hist = GeminiService.get_analysis_history(current_user, case_id=selected_case_id)
+        if hist:
+            for h in hist:
+                with st.expander(f"📜 {h.get('analysis_type')} — {h.get('created_at')}"):
+                    st.write(f"**Officer:** {h.get('officer_id')}")
+                    st.markdown(h.get("output", ""))
+        else:
+            st.info("No prior AI consultation records found for this case.")
 
 
 # =============================================================================

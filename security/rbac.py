@@ -29,6 +29,9 @@ ROLE_PERMISSIONS: Dict[str, Set[str]] = {
         "officers:view_personnel",
         "cases:view_all",
         "cases:manage_all",
+        "cases:create_fir",
+        "firs:create",
+        "firs:view",
         "sensitive_intel:access",
     },
     settings.ROLE_SP: {
@@ -37,6 +40,9 @@ ROLE_PERMISSIONS: Dict[str, Set[str]] = {
         "officers:view_personnel",
         "cases:view_all",
         "cases:department_oversight",
+        "cases:create_fir",
+        "firs:create",
+        "firs:view",
         "sensitive_intel:access",
         "reports:executive_summary",
     },
@@ -46,6 +52,9 @@ ROLE_PERMISSIONS: Dict[str, Set[str]] = {
         "cases:station_view",
         "cases:assign_investigator",
         "cases:review_case",
+        "cases:create_fir",
+        "firs:create",
+        "firs:view",
         "reports:station_summary",
     },
     settings.ROLE_INVESTIGATING_OFFICER: {
@@ -53,12 +62,18 @@ ROLE_PERMISSIONS: Dict[str, Set[str]] = {
         "cases:assigned_view",
         "cases:case_diary_write",
         "cases:evidence_catalog",
+        "cases:create_fir",
+        "firs:create",
+        "firs:view",
         "reports:investigation_log",
     },
     settings.ROLE_CONSTABLE: {
         "registry:view_stations",
         "patrol:beat_report_write",
         "cases:view_basic",
+        "cases:create_fir",
+        "firs:create",
+        "firs:view",
     },
 }
 
@@ -74,7 +89,7 @@ def has_permission(user_role: str, permission: str) -> bool:
     return permission in permissions
 
 
-def enforce_role(user: Optional[Dict[str, Any]], allowed_roles: Union[List[str], Tuple[str, ...], Set[str]], resource_name: str = "resource") -> None:
+def enforce_role(user: Optional[Any], allowed_roles: Union[List[str], Tuple[str, ...], Set[str]], resource_name: str = "resource") -> None:
     """Central backend enforcement function.
 
     Validates that user has one of the allowed_roles.
@@ -87,9 +102,9 @@ def enforce_role(user: Optional[Dict[str, Any]], allowed_roles: Union[List[str],
             resource=resource_name
         )
 
-    user_role = user.get("role")
-    user_id = str(user.get("_id", user.get("user_id", "unknown")))
-    officer_id = user.get("officer_id", "unknown")
+    user_role = user.get("role") if hasattr(user, "get") else getattr(user, "role", None)
+    user_id = str(user.get("_id", user.get("user_id", "unknown"))) if hasattr(user, "get") else str(getattr(user, "user_id", getattr(user, "_id", "unknown")))
+    officer_id = user.get("officer_id", "unknown") if hasattr(user, "get") else getattr(user, "officer_id", "unknown")
 
     if user_role not in allowed_roles:
         logger.warning(
@@ -109,14 +124,16 @@ def require_role(allowed_roles: Union[List[str], Tuple[str, ...], Set[str]], res
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # Extract user from kwargs or first argument
-            user = kwargs.get("current_user") or kwargs.get("user")
+            # Extract user from kwargs or args
+            user = kwargs.get("current_user") or kwargs.get("user") or kwargs.get("session")
             if user is None and args:
-                # If first arg looks like user dict
-                if isinstance(args[0], dict) and "role" in args[0]:
-                    user = args[0]
-                elif len(args) > 1 and isinstance(args[1], dict) and "role" in args[1]:
-                    user = args[1]
+                for arg in args:
+                    if isinstance(arg, dict) and "role" in arg:
+                        user = arg
+                        break
+                    elif hasattr(arg, "role"):
+                        user = arg
+                        break
 
             target_resource = resource_name or func.__name__
             enforce_role(user, allowed_roles, resource_name=target_resource)
